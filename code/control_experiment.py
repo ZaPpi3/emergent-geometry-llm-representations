@@ -26,8 +26,11 @@ def sample_random_tokens(model_name: str, n: int, seed: int) -> list[str]:
         if not (text and text.isascii() and text.isprintable()):
             continue
         # keep only tokens that round-trip to exactly one BPE token, matching the
-        # single-token filtering used for the real probe set (fair comparison)
-        if len(tokenizer(text)["input_ids"]) != 1:
+        # single-token filtering used for the real probe set (fair comparison).
+        # add_special_tokens=False: Llama/Mistral-family tokenizers prepend a BOS
+        # token by default, which would make every single-token word count as 2
+        # here (matches how extract_activations.py already counts token_counts).
+        if len(tokenizer(text, add_special_tokens=False)["input_ids"]) != 1:
             continue
         words.append(text)
     return words
