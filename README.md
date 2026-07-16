@@ -22,6 +22,7 @@ Recent interpretability work has reported that some LLMs represent cyclic concep
 - **Testing that stronger claim directly: months trace the cleanest 2D loop in the whole project at this same position, and it still isn't the causal code.** A synthetic vector built by rotating a base month's own activation within that discovered 2D plane, by the exact angle matching a real calendar offset, produces the correct answer 0/60 times, identical to rotating by a deliberately wrong angle (also 0/60). The 2D plane only captures ~39% of the variance at that position; a clean-looking loop is not the same as a causally sufficient code.
 - **Extending the same idea to a full-rank subspace recovers the effect almost completely.** Using n-1 principal components (~100% of the variance among the items' own vectors) and a single rotation generator fit once via orthogonal Procrustes, `R^offset` applied to a base item's own vector, with no real donor data at all, matches or slightly exceeds the real-donor patch (100% vs 100% for days, 85% vs 82% for months), while a matched fractional-power control collapses to 8-14%, near chance. The code is genuinely rotational, just not two-dimensional: the 2D failure above was a dimensionality problem, not evidence against a geometric encoding.
 - **Scaling the probe set from 77 to 500 tokens across 25 categories confirms the calendar-cluster finding and refines it.** The categories that separate cleanly turn out to be small, closed, enumerable named sets in general, not specifically cyclic/temporal ones: continents, zodiac signs, playing-card ranks, and planets each form their own distinguishable region in Mistral-7B too. Playing-card ranks even separate from ordinary cardinal numbers despite sharing the same words (`Two` vs `two`). Categories chosen to have no expected structure (animals, colors, body parts, weather, emotions) collapse into one undifferentiated blob - a second negative control that emerged from the data itself rather than being designed in.
+- **The rotation mechanism generalizes partially, and the gap tracks subject-name token length almost monotonically.** Repeating the real-donor + full-rank-rotation recipe on the other small closed sets found above: playing-card ranks reach 82%/73% accuracy, close to the days/months level, while zodiac signs and planets reach only 33-42%/17-33%. Average subject-name token length predicts the ranking cleanly (1.00 for days/months, 1.15 for cards, 2.00-2.25 for planets/zodiac): patching a single token position leaves any *other* sub-token of a multi-token name unpatched and still visible to downstream attention, diluting the effect for longer, more-fragmented names - the same leakage mechanism diagnosed in the first causal-patching attempt, now showing up as a matter of degree rather than all-or-nothing.
 
 **Bottom line:** the naive version of the "LLMs encode cyclic concepts as literal 2D circles" claim doesn't survive contact with a causal test, but a more general version does - the day/month identity used by the model is genuinely rotational, just distributed across a full-rank subspace rather than compressed into two dimensions. We think the sequence of null results that led there (last-token patching, then 2D-plane rotation) is as informative as the final positive result, since each failure isolated exactly which simplifying assumption was wrong.
 
@@ -38,6 +39,7 @@ Recent interpretability work has reported that some LLMs represent cyclic concep
 9. **Causal patching, attempt 2 (subject-token position):** activation patching at the subject-token position, across all layers - the positive result establishing causal use of day/month identity. *(`code/causal_patch_v2.py`, `code/plot_causal_trace.py`)*
 10. **Rotation patching, attempt 3 (2D plane):** synthetic activations built by rotating within the discovered 2D loop by the calendar-matched angle - a null result. *(`code/rotation_patch.py`, `code/plot_rotation_pca.py`)*
 11. **Rotation patching, attempt 4 (full-rank subspace):** the same idea generalized to an n-1-dimensional rotation generator fit via orthogonal Procrustes - the positive result that closes the investigation. *(`code/rotation_patch_highdim.py`, `code/plot_rotation_summary.py`)*
+12. **Generalization test:** repeats the real-donor + full-rank-rotation recipe on zodiac signs, planets, and playing-card ranks - the other small closed sets surfaced by the 500-token scale-up - to test whether the mechanism found for days/months holds more broadly. *(`code/check_task_newsets.py`, `code/newsets_causal.py`, `code/plot_generalization.py`)*
 
 ## 📁 Repository Structure
 
@@ -98,6 +100,13 @@ python code/rotation_patch.py --layer 12   # attempt 3: rotate within the discov
 python code/plot_rotation_pca.py
 python code/rotation_patch_highdim.py --layer 12   # attempt 4: full-rank rotation generator (positive result)
 python code/plot_rotation_summary.py
+```
+
+Generalization test (zodiac signs, planets, playing-card ranks):
+```bash
+python code/check_task_newsets.py    # sanity check: does the model solve each successor task?
+python code/newsets_causal.py --layer 12
+python code/plot_generalization.py
 ```
 
 Rebuild the PDF:

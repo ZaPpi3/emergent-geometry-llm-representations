@@ -65,9 +65,18 @@ while a matched fractional-power rotation (an off-lattice control in this
 higher-dimensional setting) collapses to 8--14\%, near chance. Day/month
 identity at this position is genuinely organized as a single consistent
 rotation acting on a high-dimensional subspace, just not the naive 2D
-circle a first PCA plot suggests. We report all five results, the bugs found
-and fixed along the way, and why we believe even the negative ones are
-informative rather than merely inconclusive.
+circle a first PCA plot suggests. Sixth, testing whether this mechanism
+generalizes to the other small closed sets surfaced by the 500-token
+scale-up (zodiac signs, planets, playing-card ranks): it partially does,
+playing-card ranks reach 82\%/73\% (real donor/full-rank rotation), close to
+the days/months level, while zodiac signs and planets reach only
+33--42\%/17--33\%, a gap that tracks each category's average subject-name
+token length almost monotonically (1.00 for days/months, 1.15 for cards,
+2.00--2.25 for planets/zodiac) and is well explained by the same
+single-token-position leakage mechanism diagnosed in the first causal
+patching attempt. We report all six results, the bugs found and fixed along
+the way, and why we believe even the negative ones are informative rather
+than merely inconclusive.
 \end{abstract}
 
 \section{Motivation}
@@ -244,6 +253,25 @@ hidden dimension via the inverse PCA transform, this is now a synthetic
 vector built with no real donor data at all, just the base item's own vector
 and the fitted rotation. As a control, we applied $R^{\text{offset}+0.5}$, a
 fractional power matching no real integer calendar/weekday offset.
+
+\subsection{Does the rotation-generator mechanism generalize beyond days and months?}
+\label{sec:generalizemethod}
+The 500-token scale-up (\S\ref{sec:scale500method}) surfaced several other
+small, closed, enumerable named sets that separate similarly to days/months:
+zodiac signs, planets, and playing-card ranks. We repeated the same two-part
+recipe (real-donor identity swap, then the full-rank rotation generator, both
+at layer 12) on each, using natural ``successor'' templates: \emph{``The
+zodiac sign after X is''} (cyclic, 12 signs), \emph{``The planet after X in
+distance from the sun is''} (linear, 8 planets), and \emph{``The playing card
+rank after X is''} (linear, 13 ranks, Ace low). A sanity check confirmed
+Mistral-7B solves each task well before patching (zodiac 12/12, playing cards
+10/12, planets 5/7; the few misses are plausible individual errors, e.g.\
+treating Ace as high rather than low, not random noise). Unlike days and
+months, these names are multi-token and vary in length item to item (average
+1.15 tokens for playing-card ranks, 2.00 for planets, 2.25 for zodiac signs,
+versus exactly 1.00 for both days and months), so the subject-token position
+was computed per item (as the last token of \texttt{template.split("\{\}")[0]
++ name}) rather than assumed fixed.
 
 \section{Results}
 \label{sec:results}
@@ -612,6 +640,52 @@ operator, spanning the full space these items occupy, is both necessary
 (the fractional-power control fails) and sufficient (no real donor vector is
 required) to reproduce the model's behavior.
 
+\subsection{Generalization: partial, and explained by subject-name token length}
+\label{sec:generalizeresult}
+
+Figure~\ref{fig:generalization} shows real-donor and full-rank-rotation
+accuracy for all five categories tested. The result is a genuine mixed
+finding, not a clean replication and not a clean failure:
+
+\begin{itemize}
+  \item \textbf{Playing-card ranks generalize well}: 82\% real-donor, 73\%
+        full-rank rotation, close to the days/months level and far above the
+        other two new categories.
+  \item \textbf{Zodiac signs and planets generalize weakly}: 42\%/33\% and
+        33\%/17\% respectively, both well below days/months and playing
+        cards.
+\end{itemize}
+
+\begin{figure}[H]
+  \centering
+  \includegraphics[width=\textwidth]{figures/generalization_summary.png}
+  \caption{Left: real-donor vs.\ full-rank-rotation accuracy across all five
+  tested categories. Right: the same accuracies plotted against each
+  category's average subject-name token length, a near-monotonic
+  relationship.}
+  \label{fig:generalization}
+\end{figure}
+
+The right panel of Figure~\ref{fig:generalization} suggests why: accuracy
+tracks average subject-name token length almost monotonically. Days and
+months (both exactly 1.00 tokens per name) sit at the top; playing-card
+ranks (1.15, since only \emph{Ace} splits into 2 tokens) sit just below;
+planets (2.00) and zodiac signs (2.25) sit at the bottom. This is consistent
+with, and a natural extension of, the mechanism diagnosed in attempt 1
+(\S\ref{sec:causalresult}): patching a single token position leaves any
+\emph{other} token of a multi-token subject name unpatched and still visible
+to downstream attention. For days and months this was not a limitation,
+because the whole subject is exactly one token, there is nothing left
+unpatched. For zodiac signs and planets, patching only the final sub-token
+of a 2--4-token name necessarily leaves the earlier sub-tokens (e.g.\
+\emph{S}, \emph{ag}, \emph{itt} of \emph{Sagittarius}) untouched, giving the
+model partial access to the base item's true identity even after patching,
+diluting the causal effect in a graded way that scales with how much of the
+name is left unpatched. This does not show the underlying representational
+code is absent or non-rotational for zodiac signs and planets, only that a
+single-token-position intervention captures it less completely the longer
+and more fragmented the subject name is.
+
 \section{Discussion}
 
 Six findings, taken together, sketch a coherent picture:
@@ -665,6 +739,15 @@ Six findings, taken together, sketch a coherent picture:
         collapses to near-chance. The geometric hypothesis was too narrowly
         operationalized in finding \#5, not wrong: the code is rotational,
         just not two-dimensional.
+  \item \textbf{The rotation mechanism generalizes partially, and the gap is
+        explained rather than mysterious.} Playing-card ranks reproduce the
+        days/months result closely; zodiac signs and planets do not, and
+        the shortfall tracks average subject-name token length almost
+        monotonically. Multi-token subject names leave sub-tokens other than
+        the patched position unpatched and visible to downstream attention,
+        diluting the effect in proportion to how much of the name escapes
+        the intervention, the same leakage mechanism that defeated attempt 1,
+        now appearing as a matter of degree rather than all-or-nothing.
 \end{enumerate}
 
 This is now, on balance, consistent with the prior published result
@@ -750,19 +833,111 @@ is not the causally sufficient version of it; the causally sufficient
 version requires the fuller space these items actually occupy. Both the
 positive and negative results were needed to arrive at that more precise
 picture, and we would not trust either finding in isolation nearly as much as
-we trust them together.
+we trust them together. Testing the same mechanism on other small closed
+sets discovered along the way (zodiac signs, planets, playing-card ranks)
+produced neither a clean universal confirmation nor a clean refutation: it
+holds up well for playing cards and weakly for zodiac signs and planets, and
+that gap is well predicted by how many subword tokens each category's names
+occupy, not by anything specific to those categories' content. That, in
+turn, sharpens the scope of the entire causal story: what we have evidence
+for is a rotational code at a specific token position, and our ability to
+detect it with a single-position patch degrades gracefully as the subject
+name we are patching stops fitting in that one position.
 
 \appendix
 \section{Original planning notes}
 \label{app:notes}
-The investigation began from a short planning document (\texttt{NOTES.md}),
-reproduced in the project repository, which framed the goal as testing
-whether ``a continuous, geometric concept-manifold spontaneously
-reconstruct[s] itself out of abstract machine data'' via mutual-information/
-cosine-similarity graphs and graph Laplacian diagonalization. All code
-referenced in this paper is included under \texttt{code/}, and the raw
-intermediate data (activation vectors, similarity graphs, eigenmode
-projections) is included under \texttt{data/}, at each project phase.
+The investigation began from a short planning document (\texttt{NOTES.md})
+which framed the goal as testing whether ``a continuous, geometric
+concept-manifold spontaneously reconstruct[s] itself out of abstract machine
+data'' via mutual-information/cosine-similarity graphs and graph Laplacian
+diagonalization. All code referenced in this paper is included under
+\texttt{code/}, and the raw intermediate data (activation vectors,
+similarity graphs, eigenmode projections) is included under \texttt{data/},
+at each project phase. The note is reproduced below, verbatim except for
+formatting.
+
+\begin{quote}
+\small
+\textbf{NOTES: The Machine Latent Space Coordinate Reconstruction Challenge}
+
+\textit{Objective.} Bypass verbose machine learning interpretations and
+treat an artificial neural network's hidden layer as a discrete,
+non-spatial relational substrate. Apply the exact-diagonalisation and graph
+Laplacian pipelines developed in the \texttt{universal-emergent-geometry}
+repository to test whether a continuous, geometric concept-manifold
+spontaneously reconstructs itself out of abstract machine data.
+
+\textit{Architectural framework.} (Raw Token Activations) $\to$ (Compute
+Mutual-Information Matrix $I(i,j)$) $\to$ (Diagonalise Graph Laplacian
+$\Delta_Q$) $\to$ (Emergent Coordinate System) $\to$ (Causal Activation
+Patching)
+
+\textit{Step-by-step execution plan.}
+\begin{itemize}
+  \item \textbf{Phase 1: Substrate extraction.} Target compact, fully
+        open-weight models (e.g.\ Qwen2.5-0.5B or TinyLlama-1.1B). Input a
+        structured dataset of 500 semantic tokens spanning hard relational
+        categories (linear number sequences, geometric shapes, spatial
+        directions, causal relationships). Write a PyTorch activation-hook
+        script to intercept the model's forward pass and extract the raw,
+        high-dimensional hidden-state activation vectors from the
+        mid-point layers (e.g.\ layer 12 of 24) where abstract structural
+        relations stabilize.
+  \item \textbf{Phase 2: Relational graph construction.} Treat each
+        semantic token's activation vector as a state node. Calculate the
+        exact cosine similarity or statistical mutual information
+        $I(i,j)$ between every node pair to construct a definitive
+        $500 \times 500$ relational correlation matrix. Assemble the
+        unnormalised graph Laplacian ($\Delta_Q$) directly from this
+        relational kernel, completely bypassing any geometric background
+        assumptions.
+  \item \textbf{Phase 3: Exact-diagonalisation and manifold mapping.}
+        Execute a clean numerical exact-diagonalisation of the graph
+        Laplacian operator. Plot the lowest-lying non-trivial eigenmodes
+        ($\lambda_1, \lambda_2, \lambda_3$) as spatial coordinates. Observe
+        whether the low-lying spectrum cleanly reconstructs smooth,
+        low-dimensional spatial geometry (circles, lines, or tori) matching
+        the intrinsic logic of the input concepts.
+  \item \textbf{Phase 4: Causal validation via activation patching.} A
+        geometric pattern in the eigenmode plot is only correlational -
+        it does not show the model actually \emph{uses} that structure.
+        From Phase 3, extract the subspace spanned by the discovered
+        eigenmodes (e.g.\ the 2D plane containing a suspected circular
+        manifold for a cyclic category like days-of-week or months).
+        During a fresh forward pass on a held-out prompt, intercept the
+        residual stream at the same extraction layer and directly edit the
+        token's activation: project onto the discovered subspace, rotate
+        or translate it by a known amount along the recovered coordinate
+        (e.g.\ rotate the circle by the angle corresponding to ``+2
+        days''), then let the forward pass continue unmodified. If the
+        eigenmode coordinates are the model's real internal representation,
+        the patched forward pass should shift the output logits/next-token
+        prediction in the exact direction predicted by the geometry (e.g.\
+        patching ``+2 days'' along the recovered circle should shift
+        ``Tuesday'' to ``Thursday''). As a control, repeat the same patch
+        using a random direction of matched norm, orthogonal to the
+        discovered subspace - this should produce no consistent,
+        semantically predicted shift in outputs. Report the
+        patched-prediction accuracy across many prompts/categories,
+        compared against the random-direction control's accuracy.
+\end{itemize}
+
+\textit{Hard constraints and verification checks.}
+\begin{itemize}
+  \item \textbf{The $g=0$ decoupling control:} randomized or fully shuffled
+        token inputs should collapse the graph Laplacian spectrum to a
+        flat, featureless noise envelope.
+  \item \textbf{Pipeline validation:} token-indexing layouts must not
+        silently map trailing token dependencies onto wrong physical
+        vector spaces during batch compilation.
+  \item \textbf{The causal requirement:} do not claim the geometry is
+        ``used'' by the model on representational evidence alone - the
+        Phase 4 patching experiment must show patched-direction predictions
+        beat the random-direction control before any functional claim is
+        made.
+\end{itemize}
+\end{quote}
 
 \begin{thebibliography}{9}
 
