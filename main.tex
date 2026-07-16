@@ -68,15 +68,19 @@ rotation acting on a high-dimensional subspace, just not the naive 2D
 circle a first PCA plot suggests. Sixth, testing whether this mechanism
 generalizes to the other small closed sets surfaced by the 500-token
 scale-up (zodiac signs, planets, playing-card ranks): it partially does,
-playing-card ranks reach 82\%/73\% (real donor/full-rank rotation), close to
-the days/months level, while zodiac signs and planets reach only
-33--42\%/17--33\%, a gap that tracks each category's average subject-name
-token length almost monotonically (1.00 for days/months, 1.15 for cards,
-2.00--2.25 for planets/zodiac) and is well explained by the same
-single-token-position leakage mechanism diagnosed in the first causal
-patching attempt. We report all six results, the bugs found and fixed along
-the way, and why we believe even the negative ones are informative rather
-than merely inconclusive.
+playing-card ranks reach 82\%/73\% (real donor/full-rank rotation, both
+significant at $p < 10^{-6}$ vs.\ chance), zodiac signs reach a smaller but
+still statistically genuine 42\%/33\% ($p < 0.02$), while planets' 33\%/17\%
+is, with only 6 testable items, not statistically distinguishable from
+chance ($p = 0.17$). The three testable categories' accuracy tracks average
+subject-name token length in the direction the single-token-position
+leakage mechanism diagnosed in the first causal patching attempt predicts
+(1.00 for days/months, 1.15 for cards, 2.00--2.25 for planets/zodiac),
+though with confidence intervals this wide across only 3--5 data points, we
+treat this as consistent with that mechanism rather than as an independent
+confirmation of it. We report all six results, the bugs found and fixed
+along the way, and why we believe even the negative ones are informative
+rather than merely inconclusive.
 \end{abstract}
 
 \section{Motivation}
@@ -146,11 +150,16 @@ low-lying eigenvectors ($\lambda_1, \lambda_2, \lambda_3$) were treated as
 candidate spatial coordinates.
 
 \subsection{Hard constraint: the $g{=}0$ control}
+\label{sec:g0method}
 As specified in the original plan, we validated the pipeline against a
 control: the identical procedure run on randomly sampled, single-token
 vocabulary strings instead of the structured probe set. A real effect should
 show more spectral structure (a sharper gap after the first non-trivial
-eigenvalue) than this randomized-input control.
+eigenvalue) than this randomized-input control. To turn this into an actual
+null distribution rather than a single anecdotal comparison, we repeated the
+control across 10 independent random seeds (53 tokens each) and compared the
+real probe set's gap ratio against the resulting distribution rather than
+one draw.
 
 \subsection{Scaling the probe set to 500 tokens}
 \label{sec:scale500method}
@@ -218,12 +227,15 @@ itself show \emph{how} that identity is encoded, only that some code there
 matters. To test the specifically geometric claim, at a fixed layer (12,
 comfortably inside the successful window for both categories in attempt 2) we
 fit ordinary 2-component PCA to the 7 or 12 items' own subject-position
-vectors, giving each item a 2D coordinate. For a base item and an integer
-offset $k$, we constructed a \emph{synthetic} patch vector: take the base
-item's own vector, rotate its 2D projection by $k \times \frac{2\pi}{n}$
-around the fitted centroid, reconstruct back into the full hidden-dimension
-space via the inverse PCA transform, and leave the residual (the component
-outside the top-2 PCs) exactly as the base's own. If the subject identity is
+vectors, giving each item a 2D coordinate. For every base item and every
+integer offset $k \in \{1, \ldots, 5\}$ (5 offsets $\times$ 7 days $=$ 35
+trials, 5 offsets $\times$ 12 months $=$ 60 trials, the $N$ underlying every
+accuracy reported in \S\ref{sec:rotationresult}), we constructed a
+\emph{synthetic} patch vector: take the base item's own vector, rotate its
+2D projection by $k \times \frac{2\pi}{n}$ around the fitted centroid,
+reconstruct back into the full hidden-dimension space via the inverse PCA
+transform, and leave the residual (the component outside the top-2 PCs)
+exactly as the base's own. If the subject identity is
 literally encoded as an angle on that 2D circle, this synthetic, partly
 fabricated vector should be just as effective as a real donor's vector at
 shifting the model's answer. As a control, we built the same construction
@@ -245,8 +257,10 @@ minimizing $\lVert C R - C' \rVert_F$ over orthogonal $R$, where $C$ is the
 matrix of all $n$ items' $k$-dim coordinates in natural cyclic order and $C'$
 is the same matrix cyclically shifted by one row) that best maps every
 item's coordinate to the next item's coordinate, fit once across all $n$
-consecutive pairs simultaneously rather than per-pair. For a base item and
-integer offset, we applied $R^{\text{offset}}$ (via eigendecomposition, which
+consecutive pairs simultaneously rather than per-pair. For every base item
+and every integer offset in $\{1, \ldots, 5\}$ (the same 35/60-trial design
+as attempt 3, \S\ref{sec:rotationmethod}), we applied $R^{\text{offset}}$
+(via eigendecomposition, which
 also supports non-integer matrix powers) directly to the base's own
 $k$-dimensional coordinate, then reconstructed the result back to the full
 hidden dimension via the inverse PCA transform, this is now a synthetic
@@ -318,10 +332,14 @@ cluster at the bottom, distinct from the rest.
 
 The $g{=}0$ control (Figure~\ref{fig:spectrum}) confirms this is a real,
 above-noise effect: the structured probe set's spectrum shows a sharp jump
-after the second eigenvalue (gap ratio $\lambda_3/\lambda_2 \approx 8.0$),
-while randomized single-token vocabulary strings, run through the identical
-pipeline, produce a much smoother, more gradual spectrum (gap ratio
-$\approx 2.1$).
+after the second eigenvalue (gap ratio $\lambda_3/\lambda_2 = 7.98$), while
+randomized single-token vocabulary strings, run through the identical
+pipeline, produce a much smoother, more gradual spectrum. Across 10
+independent random seeds (\S\ref{sec:g0method}) this control's gap ratio has
+mean $2.23$, standard deviation $0.42$, and a maximum of $2.90$ - the real
+probe set's ratio is $13.6$ standard deviations above the control's mean and
+exceeds every one of the 10 random draws individually, not just the average
+of them.
 
 \begin{figure}[H]
   \centering
@@ -495,16 +513,25 @@ effect should look like (Figure~\ref{fig:causaltrace}). For both categories:
 
 \begin{itemize}
   \item \textbf{Real donor patches work almost perfectly through the early-to-mid
-        layers.} Days-of-week: 100\% patch accuracy from layer 0 through
-        layer 19. Months: 83--100\% accuracy from layer 0 through layer 16.
-        Swapping in a different day/month's representation at this one token
-        position, at these layers, is sufficient to flip the model's final
-        answer to match the donor, exactly as if the input word itself had
-        been changed.
+        layers.} Days-of-week: 100\% (7/7) patch accuracy from layer 0
+        through layer 19 (binomial test vs.\ chance $1/7$: $p = 1.2 \times
+        10^{-6}$; Fisher's exact test vs.\ the random-direction control at
+        the same layers: $p = 2.9 \times 10^{-4}$). Months: 83--100\%
+        (10--12/12) accuracy from layer 0 through layer 16 (e.g.\ layer 10,
+        12/12: $p = 1.1 \times 10^{-13}$ vs.\ chance $1/12$, $p = 3.7 \times
+        10^{-7}$ vs.\ control). Swapping in a different day/month's
+        representation at this one token position, at these layers, is
+        sufficient to flip the model's final answer to match the donor,
+        exactly as if the input word itself had been changed.
   \item \textbf{The effect collapses sharply past a well-defined depth.} Days:
-        accuracy drops to 29\% at layer 20 and 0\% from layer 21 on. Months:
-        it drops to 8\% at layer 17 and 0\% from layer 18 on. This is a
-        genuine localization result, not a gradual fade, consistent with
+        accuracy drops to 29\% (2/7) at layer 20 and 0\% from layer 21 on;
+        at layer 20 the drop is already enough that patch accuracy is no
+        longer distinguishable from chance ($p = 0.26$) or from the
+        random-direction control ($p = 0.23$). Months: it drops to 8\%
+        (1/12) at layer 17 ($p = 0.65$ vs.\ chance, $p = 0.50$ vs.\ control)
+        and 0\% from layer 18 on. This is a genuine localization result, not
+        a gradual fade: the collapse layers are not just numerically lower,
+        they are statistically indistinguishable from noise, consistent with
         the model reading the subject identity out of this position by a
         certain depth and no longer needing to re-derive it from there in
         later layers.
@@ -564,14 +591,18 @@ Despite that clean loop, the rotation experiment is a clear, symmetric null
 result:
 
 \begin{itemize}
-  \item \textbf{Real donor patches at this layer}: 35/35 (100\%) for days,
-        49/60 (82\%) for months, consistent with attempt 2's layer sweep at
-        layer 12.
+  \item \textbf{Real donor patches at this layer}: 35/35 (100\%, $p = 2.6
+        \times 10^{-30}$ vs.\ chance $1/7$) for days, 49/60 (82\%, $p = 1.8
+        \times 10^{-42}$ vs.\ chance $1/12$) for months, consistent with
+        attempt 2's layer sweep at layer 12.
   \item \textbf{Synthetic rotation, correct calendar-consistent angle}: 3/35
-        (9\%) for days, 0/60 (0\%) for months.
+        (9\%, $p = 0.89$ vs.\ chance) for days, 0/60 (0\%, $p = 1.00$ vs.\
+        chance) for months - neither is distinguishable from chance
+        performance.
   \item \textbf{Synthetic rotation, deliberately wrong off-lattice angle}:
         3/35 (9\%) for days, 0/60 (0\%) for months, statistically
-        indistinguishable from the ``correct'' angle. Line-by-line, the two
+        indistinguishable from the ``correct'' angle (Fisher's exact test,
+        days: $p = 0.66$; months: $p = 1.00$). Line-by-line, the two
         conditions frequently produce the exact same output token for the
         exact same base item, meaning whether the rotation angle matched a
         real calendar offset made no detectable difference at all: both
@@ -598,16 +629,20 @@ full-rank rotation generator, fit once across all items via orthogonal
 Procrustes, closes almost all of the gap left open by attempt 3:
 
 \begin{itemize}
-  \item \textbf{Days-of-week}: full-rank rotation reaches 35/35 (100\%),
-        identical to the real donor patch, and far above the 2D rotation's
-        3/35 (9\%).
-  \item \textbf{Months}: full-rank rotation reaches 51/60 (85\%), matching
-        (in fact marginally exceeding) the real donor patch's 49/60 (82\%),
-        and far above the 2D rotation's 0/60 (0\%).
-  \item \textbf{The fractional-power control collapses}, to 5/35 (14\%) for
-        days and 5/60 (8\%) for months, both near the noise floor. Only a
-        rotation by a real integer offset works; a rotation by almost the
-        same angle, fit with the exact same procedure, does not.
+  \item \textbf{Days-of-week}: full-rank rotation reaches 35/35 (100\%, $p =
+        2.6 \times 10^{-30}$ vs.\ chance, $p = 5.9 \times 10^{-15}$ vs.\ the
+        fractional-power control below), identical to the real donor patch,
+        and far above the 2D rotation's 3/35 (9\%).
+  \item \textbf{Months}: full-rank rotation reaches 51/60 (85\%, $p = 6.3
+        \times 10^{-46}$ vs.\ chance, $p = 1.1 \times 10^{-18}$ vs.\
+        control), matching (in fact marginally exceeding) the real donor
+        patch's 49/60 (82\%), and far above the 2D rotation's 0/60 (0\%).
+  \item \textbf{The fractional-power control collapses}, to 5/35 (14\%,
+        $p = 0.57$ vs.\ chance) for days and 5/60 (8\%, $p = 0.57$ vs.\
+        chance) for months, both statistically indistinguishable from
+        chance performance. Only a rotation by a real integer offset works;
+        a rotation by almost the same angle, fit with the exact same
+        procedure, does not.
 \end{itemize}
 
 \begin{figure}[H]
@@ -648,12 +683,24 @@ accuracy for all five categories tested. The result is a genuine mixed
 finding, not a clean replication and not a clean failure:
 
 \begin{itemize}
-  \item \textbf{Playing-card ranks generalize well}: 82\% real-donor, 73\%
-        full-rank rotation, close to the days/months level and far above the
-        other two new categories.
-  \item \textbf{Zodiac signs and planets generalize weakly}: 42\%/33\% and
-        33\%/17\% respectively, both well below days/months and playing
-        cards.
+  \item \textbf{Playing-card ranks generalize well}: 82\% (9/11) real-donor
+        ($p = 4.5 \times 10^{-9}$ vs.\ chance $1/13$), 73\% (8/11) full-rank
+        rotation ($p = 1.6 \times 10^{-7}$), close to the days/months level
+        and far above the other two new categories.
+  \item \textbf{Zodiac signs generalize weakly but genuinely}: 42\% (5/12)
+        real-donor and 33\% (4/12) full-rank rotation, both still
+        statistically well above chance $1/12$ ($p = 1.9 \times 10^{-3}$
+        and $p = 1.4 \times 10^{-2}$ respectively), just far below
+        days/months and playing cards.
+  \item \textbf{Planets show the smallest effect, and it is not
+        statistically distinguishable from chance}: 33\% (2/6) real-donor
+        ($p = 0.17$ vs.\ chance $1/8$) and 17\% (1/6) full-rank rotation
+        ($p = 0.55$). Only 6 of the 8 planets have a valid successor under
+        this category's non-cyclic ordering (Uranus and Neptune, the last
+        two, do not - see \S\ref{sec:generalizemethod}), so this category
+        has by far the smallest $N$ of the five tested here; ``planets
+        generalize weakly'' is better read as ``too little data to detect
+        an effect in either direction'' than as a confirmed weak positive.
 \end{itemize}
 
 \begin{figure}[H]
@@ -661,8 +708,11 @@ finding, not a clean replication and not a clean failure:
   \includegraphics[width=\textwidth]{figures/generalization_summary.png}
   \caption{Left: real-donor vs.\ full-rank-rotation accuracy across all five
   tested categories. Right: the same accuracies plotted against each
-  category's average subject-name token length, a near-monotonic
-  relationship.}
+  category's average subject-name token length, a visually near-monotonic
+  relationship (though see the significance tests above and the
+  discussion below: with $N$ as low as 6, the categories' 95\% confidence
+  intervals overlap substantially, so this is a suggestive pattern across
+  5 points, not an independently confirmed ordering).}
   \label{fig:generalization}
 \end{figure}
 
@@ -670,7 +720,17 @@ The right panel of Figure~\ref{fig:generalization} suggests why: accuracy
 tracks average subject-name token length almost monotonically. Days and
 months (both exactly 1.00 tokens per name) sit at the top; playing-card
 ranks (1.15, since only \emph{Ace} splits into 2 tokens) sit just below;
-planets (2.00) and zodiac signs (2.25) sit at the bottom. This is consistent
+planets (2.00) and zodiac signs (2.25) sit at the bottom. Taken at face
+value this ordering is clean, but the categories' 95\% Wilson confidence
+intervals are wide enough to overlap one another almost entirely (e.g.\
+zodiac real-donor $[19\%, 68\%]$ and planets real-donor $[10\%, 70\%]$
+overlap nearly completely with each other and substantially with playing
+cards' $[52\%, 95\%]$), so the visual trend should be read as consistent
+with the token-length hypothesis rather than as independent statistical
+confirmation of it; a direct test (patching every sub-token position of a
+multi-token subject, not just the last one, and checking the gap closes)
+would be needed to confirm the mechanism rather than infer it from a
+5-point correlation. This is consistent
 with, and a natural extension of, the mechanism diagnosed in attempt 1
 (\S\ref{sec:causalresult}): patching a single token position leaves any
 \emph{other} token of a multi-token subject name unpatched and still visible
@@ -742,14 +802,21 @@ null results itemized separately below as findings 2 and 3):
         operationalized in finding \#5, not wrong: the code is rotational,
         just not two-dimensional.
   \item \textbf{The rotation mechanism generalizes partially, and the gap is
-        explained rather than mysterious.} Playing-card ranks reproduce the
-        days/months result closely; zodiac signs and planets do not, and
-        the shortfall tracks average subject-name token length almost
-        monotonically. Multi-token subject names leave sub-tokens other than
-        the patched position unpatched and visible to downstream attention,
-        diluting the effect in proportion to how much of the name escapes
-        the intervention, the same leakage mechanism that defeated attempt 1,
-        now appearing as a matter of degree rather than all-or-nothing.
+        plausibly explained rather than purely mysterious.} Playing-card
+        ranks reproduce the days/months result closely and zodiac signs
+        reproduce it more weakly but still significantly; planets' result
+        is too small-$N$ (6 testable items) to be distinguished from
+        chance at all. Among the three testable categories, the shortfall
+        tracks average subject-name token length in the direction the
+        attempt-1 leakage mechanism predicts, though this is a 3-5-point
+        correlation with wide, overlapping confidence intervals, not an
+        independently confirmed test of that mechanism. Multi-token subject
+        names leave sub-tokens other than the patched position unpatched
+        and visible to downstream attention, diluting the effect in
+        proportion to how much of the name escapes the intervention, the
+        same leakage mechanism that defeated attempt 1 - plausible and
+        consistent with the pattern observed, but not yet directly tested
+        by patching every sub-token position.
 \end{enumerate}
 
 This is now, on balance, consistent with the prior published result
@@ -809,6 +876,23 @@ less accurate conclusion.
         reproduce the causal effect almost perfectly; we do not yet have an
         account of why an imperfectly-fit rotation is nonetheless
         behaviorally sufficient.
+  \item The generalization test (\S\ref{sec:generalizeresult}) inherits the
+        small-$N$ problem throughout this paper in its most acute form:
+        planets has only 6 testable base items after excluding the two
+        with no valid successor, and its headline accuracy is not
+        statistically distinguishable from chance. Reporting binomial
+        $p$-values and Wilson confidence intervals throughout this paper
+        (added after the results above were first obtained) makes this
+        precise rather than hiding it behind a bare percentage, but it does
+        not fix the underlying small sample; a category with a genuinely
+        real but modest effect and a category with no effect at all can
+        look identical at $N=6$.
+  \item The token-length explanation for the generalization gap
+        (\S\ref{sec:generalizeresult}) is a plausibility argument over 3-5
+        categories, not a direct causal test. The natural stronger
+        experiment - patching every sub-token position of a multi-token
+        subject name, not just the last one, and checking whether the gap
+        closes - has not been run.
 \end{itemize}
 
 \section{Conclusion}
@@ -838,13 +922,20 @@ picture, and we would not trust either finding in isolation nearly as much as
 we trust them together. Testing the same mechanism on other small closed
 sets discovered along the way (zodiac signs, planets, playing-card ranks)
 produced neither a clean universal confirmation nor a clean refutation: it
-holds up well for playing cards and weakly for zodiac signs and planets, and
-that gap is well predicted by how many subword tokens each category's names
-occupy, not by anything specific to those categories' content. That, in
-turn, sharpens the scope of the entire causal story: what we have evidence
-for is a rotational code at a specific token position, and our ability to
-detect it with a single-position patch degrades gracefully as the subject
-name we are patching stops fitting in that one position.
+holds up well for playing cards, holds up more weakly but still
+significantly for zodiac signs, and for planets is not statistically
+distinguishable from chance given only 6 testable items. Among the two
+categories with enough data to say anything, the gap tracks how many
+subword tokens each category's names occupy, consistent with (though not
+independently confirmed to be caused by) the same leakage mechanism
+diagnosed in the first causal-patching attempt, not by anything specific to
+those categories' content. That, in turn, sharpens the scope of the entire
+causal story: what we have evidence for is a rotational code at a specific
+token position, and our ability to detect it with a single-position patch
+degrades gracefully as the subject name we are patching stops fitting in
+that one position - though confirming that degradation is specifically
+token-length-driven, rather than merely correlated with it, would need a
+direct sub-token-patching experiment we have not yet run.
 
 \appendix
 \section{Original planning notes}
