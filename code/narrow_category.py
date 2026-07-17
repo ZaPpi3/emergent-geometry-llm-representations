@@ -2,7 +2,7 @@
 
 Filters activations.npz down to one category, rebuilds the graph + Laplacian
 on just those tokens, and plots the eigenmode embedding with the tokens'
-natural cyclic order connected — a real circle should trace a closed loop.
+natural cyclic order connected - a real circle should trace a closed loop.
 """
 import argparse
 

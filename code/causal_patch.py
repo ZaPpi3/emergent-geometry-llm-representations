@@ -2,7 +2,7 @@
 
 For each (base, donor) pair, run the base prompt ("The day after {base} is")
 but splice the donor's layer-16 last-token hidden state in place of the base's
-own — then check whether the model's next-token prediction shifts to the
+own - then check whether the model's next-token prediction shifts to the
 donor's natural answer. A random-direction control (same-norm noise instead of
 the donor's real vector) should NOT produce that shift.
 """
