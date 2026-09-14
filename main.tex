@@ -336,7 +336,7 @@ after the second eigenvalue (gap ratio $\lambda_3/\lambda_2 = 7.98$), while
 randomized single-token vocabulary strings, run through the identical
 pipeline, produce a much smoother, more gradual spectrum. Across 10
 independent random seeds (\S\ref{sec:g0method}) this control's gap ratio has
-mean $2.23$, standard deviation $0.42$, and a maximum of $2.90$ - the real
+mean $2.23$, standard deviation $0.42$, and a maximum of $2.90$; the real
 probe set's ratio is $13.6$ standard deviations above the control's mean and
 exceeds every one of the 10 random draws individually, not just the average
 of them.
@@ -597,7 +597,7 @@ result:
         attempt 2's layer sweep at layer 12.
   \item \textbf{Synthetic rotation, correct calendar-consistent angle}: 3/35
         (9\%, $p = 0.89$ vs.\ chance) for days, 0/60 (0\%, $p = 1.00$ vs.\
-        chance) for months - neither is distinguishable from chance
+        chance) for months, neither distinguishable from chance
         performance.
   \item \textbf{Synthetic rotation, deliberately wrong off-lattice angle}:
         3/35 (9\%) for days, 0/60 (0\%) for months, statistically
@@ -697,7 +697,7 @@ finding, not a clean replication and not a clean failure:
         ($p = 0.17$ vs.\ chance $1/8$) and 17\% (1/6) full-rank rotation
         ($p = 0.55$). Only 6 of the 8 planets have a valid successor under
         this category's non-cyclic ordering (Uranus and Neptune, the last
-        two, do not - see \S\ref{sec:generalizemethod}), so this category
+        two, do not; see \S\ref{sec:generalizemethod}), so this category
         has by far the smallest $N$ of the five tested here; ``planets
         generalize weakly'' is better read as ``too little data to detect
         an effect in either direction'' than as a confirmed weak positive.
@@ -814,7 +814,7 @@ null results itemized separately below as findings 2 and 3):
         names leave sub-tokens other than the patched position unpatched
         and visible to downstream attention, diluting the effect in
         proportion to how much of the name escapes the intervention, the
-        same leakage mechanism that defeated attempt 1 - plausible and
+        same leakage mechanism that defeated attempt 1, plausible and
         consistent with the pattern observed, but not yet directly tested
         by patching every sub-token position.
 \end{enumerate}
@@ -890,9 +890,9 @@ less accurate conclusion.
   \item The token-length explanation for the generalization gap
         (\S\ref{sec:generalizeresult}) is a plausibility argument over 3-5
         categories, not a direct causal test. The natural stronger
-        experiment - patching every sub-token position of a multi-token
+        experiment (patching every sub-token position of a multi-token
         subject name, not just the last one, and checking whether the gap
-        closes - has not been run.
+        closes) has not been run.
 \end{itemize}
 
 \section{Conclusion}
@@ -933,7 +933,7 @@ those categories' content. That, in turn, sharpens the scope of the entire
 causal story: what we have evidence for is a rotational code at a specific
 token position, and our ability to detect it with a single-position patch
 degrades gracefully as the subject name we are patching stops fitting in
-that one position - though confirming that degradation is specifically
+that one position, though confirming that degradation is specifically
 token-length-driven, rather than merely correlated with it, would need a
 direct sub-token-patching experiment we have not yet run.
 
@@ -1010,7 +1010,7 @@ Patching)
         patching ``+2 days'' along the recovered circle should shift
         ``Tuesday'' to ``Thursday''). As a control, repeat the same patch
         using a random direction of matched norm, orthogonal to the
-        discovered subspace - this should produce no consistent,
+        discovered subspace; this should produce no consistent,
         semantically predicted shift in outputs. Report the
         patched-prediction accuracy across many prompts/categories,
         compared against the random-direction control's accuracy.
@@ -1025,7 +1025,7 @@ Patching)
         silently map trailing token dependencies onto wrong physical
         vector spaces during batch compilation.
   \item \textbf{The causal requirement:} do not claim the geometry is
-        ``used'' by the model on representational evidence alone - the
+        ``used'' by the model on representational evidence alone; the
         Phase 4 patching experiment must show patched-direction predictions
         beat the random-direction control before any functional claim is
         made.
