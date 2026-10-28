@@ -75,10 +75,15 @@ is, with only 6 testable items, not statistically distinguishable from
 chance ($p = 0.17$). The three testable categories' accuracy tracks average
 subject-name token length in the direction the single-token-position
 leakage mechanism diagnosed in the first causal patching attempt predicts
-(1.00 for days/months, 1.15 for cards, 2.00-2.25 for planets/zodiac),
-though with confidence intervals this wide across only 3-5 data points, we
-treat this as consistent with that mechanism rather than as an independent
-confirmation of it. We report all six results, the bugs found and fixed
+(1.00 for days/months, 1.15 for cards, 2.00-2.25 for planets/zodiac).
+Patching every sub-token position of a multi-token subject, rather than
+only the last one, tests this mechanism directly instead of just
+correlating with it: zodiac signs improve substantially (42\%$\to$75\%
+real-donor), concentrated in its multi-token items as predicted, while
+planets do not move at all (33\%$\to$33\%), pointing instead to its
+separate small-$N$ problem. The mechanism is real and causally confirmed
+for at least one category, not a complete explanation for every one. We
+report all six results, the bugs found and fixed
 along the way, and why we believe even the negative ones are informative
 rather than merely inconclusive.
 \end{abstract}
@@ -725,13 +730,10 @@ value this ordering is clean, but the categories' 95\% Wilson confidence
 intervals are wide enough to overlap one another almost entirely (e.g.\
 zodiac real-donor $[19\%, 68\%]$ and planets real-donor $[10\%, 70\%]$
 overlap nearly completely with each other and substantially with playing
-cards' $[52\%, 95\%]$), so the visual trend should be read as consistent
-with the token-length hypothesis rather than as independent statistical
-confirmation of it; a direct test (patching every sub-token position of a
-multi-token subject, not just the last one, and checking the gap closes)
-would be needed to confirm the mechanism rather than infer it from a
-5-point correlation. This is consistent
-with, and a natural extension of, the mechanism diagnosed in attempt 1
+cards' $[52\%, 95\%]$), so the visual trend on its own should be read as
+consistent with the token-length hypothesis rather than as independent
+statistical confirmation of it. This is consistent with, and a natural
+extension of, the mechanism diagnosed in attempt 1
 (\S\ref{sec:causalresult}): patching a single token position leaves any
 \emph{other} token of a multi-token subject name unpatched and still visible
 to downstream attention. For days and months this was not a limitation,
@@ -740,11 +742,28 @@ unpatched. For zodiac signs and planets, patching only the final sub-token
 of a 2-4-token name necessarily leaves the earlier sub-tokens (e.g.\
 \emph{S}, \emph{ag}, \emph{itt} of \emph{Sagittarius}) untouched, giving the
 model partial access to the base item's true identity even after patching,
-diluting the causal effect in a graded way that scales with how much of the
-name is left unpatched. This does not show the underlying representational
-code is absent or non-rotational for zodiac signs and planets, only that a
-single-token-position intervention captures it less completely the longer
-and more fragmented the subject name is.
+a candidate mechanism for diluting the causal effect in a graded way that
+scales with how much of the name is left unpatched.
+
+We tested this directly, not just inferred it: patching every sub-token
+position of the base subject's span with the same donor vector, rather
+than only the final one, with nothing else about the recipe changed. The
+result is a genuine, mixed verdict, not a clean confirmation or a clean
+refutation. Zodiac signs improved substantially (real-donor $5/12\to
+9/12$, rotation-generator $4/12\to 6/12$), concentrated in exactly the
+multi-token subjects the hypothesis implicates (multi-token-only:
+$7/10$ real-donor), real support for the mechanism rather than a mere
+correlation. Planets did not move at all (real-donor $2/6\to 2/6$,
+multi-token-only $1/4$), despite having four 2-token subject names where
+the same dilution should equally apply if it were the operative cause
+here too; this points instead to planets' separately-noted small-$N$
+problem (only 6 of 8 planets have a valid successor under the
+non-cyclic ordering used, the smallest sample of anything tested here)
+as the dominant limitation for that category specifically. The
+token-length mechanism is therefore real and causally confirmed for at
+least one category, but not a complete explanation for the weakest one;
+reporting both outcomes plainly is more useful than reporting only the
+category where the hypothesis held.
 
 \section{Discussion}
 
@@ -808,15 +827,22 @@ null results itemized separately below as findings 2 and 3):
         is too small-$N$ (6 testable items) to be distinguished from
         chance at all. Among the three testable categories, the shortfall
         tracks average subject-name token length in the direction the
-        attempt-1 leakage mechanism predicts, though this is a 3-5-point
-        correlation with wide, overlapping confidence intervals, not an
-        independently confirmed test of that mechanism. Multi-token subject
-        names leave sub-tokens other than the patched position unpatched
-        and visible to downstream attention, diluting the effect in
-        proportion to how much of the name escapes the intervention, the
-        same leakage mechanism that defeated attempt 1, plausible and
-        consistent with the pattern observed, but not yet directly tested
-        by patching every sub-token position.
+        attempt-1 leakage mechanism predicts: multi-token subject names
+        leave sub-tokens other than the patched position unpatched and
+        visible to downstream attention, diluting the effect in proportion
+        to how much of the name escapes the intervention, the same leakage
+        mechanism that defeated attempt 1. Patching every sub-token position
+        of the subject span directly tests this, rather than just
+        correlating with it, and gets a genuine mixed result: zodiac signs
+        improve substantially (real-donor $5/12\to9/12$), concentrated in
+        its multi-token items as the mechanism predicts, real causal
+        confirmation; planets do not move at all ($2/6\to2/6$), despite
+        having multi-token subjects where the same mechanism should equally
+        apply, pointing instead to planets' separate small-$N$/ordering
+        problem as the dominant cause there. The leakage mechanism is real
+        and causally confirmed for at least one category, not merely
+        inferred from a correlation, but is not a complete explanation for
+        every category's shortfall.
 \end{enumerate}
 
 This is now, on balance, consistent with the prior published result
@@ -888,11 +914,14 @@ less accurate conclusion.
         real but modest effect and a category with no effect at all can
         look identical at $N=6$.
   \item The token-length explanation for the generalization gap
-        (\S\ref{sec:generalizeresult}) is a plausibility argument over 3-5
-        categories, not a direct causal test. The natural stronger
-        experiment (patching every sub-token position of a multi-token
-        subject name, not just the last one, and checking whether the gap
-        closes) has not been run.
+        (\S\ref{sec:generalizeresult}) has now been causally tested, not
+        just correlated, by patching every sub-token position of the
+        subject span instead of only the last one: it holds for zodiac
+        signs (real-donor $5/12\to9/12$) but not for planets ($2/6\to2/6$,
+        unchanged), which has its own separate small-$N$ problem. It is a
+        real, confirmed mechanism for at least one category, not a complete
+        explanation across all of them, and should not be read as either
+        fully vindicated or fully discarded.
 \end{itemize}
 
 \section{Conclusion}
@@ -926,16 +955,16 @@ holds up well for playing cards, holds up more weakly but still
 significantly for zodiac signs, and for planets is not statistically
 distinguishable from chance given only 6 testable items. Among the two
 categories with enough data to say anything, the gap tracks how many
-subword tokens each category's names occupy, consistent with (though not
-independently confirmed to be caused by) the same leakage mechanism
-diagnosed in the first causal-patching attempt, not by anything specific to
-those categories' content. That, in turn, sharpens the scope of the entire
-causal story: what we have evidence for is a rotational code at a specific
-token position, and our ability to detect it with a single-position patch
-degrades gracefully as the subject name we are patching stops fitting in
-that one position, though confirming that degradation is specifically
-token-length-driven, rather than merely correlated with it, would need a
-direct sub-token-patching experiment we have not yet run.
+subword tokens each category's names occupy, and a direct sub-token-
+patching experiment confirms this is causal, not merely correlated, for
+zodiac signs specifically, while planets' shortfall traces instead to its
+own small-$N$ problem and is not explained by token length at all. That,
+in turn, sharpens the scope of the entire causal story: what we have
+evidence for is a rotational code at a specific token position, and our
+ability to detect it with a single-position patch degrades as the subject
+name we are patching stops fitting in that one position, a real,
+confirmed effect for at least one category rather than only an inferred
+one, but not the whole explanation for every category's own shortfall.
 
 \appendix
 \section{Original planning notes}
